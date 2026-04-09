@@ -310,16 +310,19 @@ export default function CalendarWidget() {
             <div className="px-5 sm:px-6 pt-5 pb-3 flex-shrink-0"
               style={{ borderBottom: `1px solid ${tokens.border}` }}>
 
-              {/* Top row: month name + pickers + nav */}
-              <div className="flex items-center justify-between mb-3 gap-2">
+              {/* Picker portal — rendered ABOVE the flex row so overflow never clips it */}
+              <div className="relative">
 
-                {/* Month name — click to open month picker */}
-                <div className="overflow-hidden flex-1 min-w-0 relative" ref={picker !== "none" ? undefined : undefined}>
+                {/* ── Top row: month name + nav controls ─────────────────── */}
+                <div className="flex items-center justify-between mb-3 gap-2">
+
+                  {/* Month name button */}
                   <button
                     onClick={() => setPicker(p => p === "month" ? "none" : "month")}
                     aria-label={`${monthName} — click to change month`}
                     aria-expanded={picker === "month"}
-                    className="flex items-baseline gap-1 group focus:outline-none">
+                    aria-haspopup="listbox"
+                    className="flex items-baseline gap-1.5 group focus:outline-none flex-1 min-w-0">
                     <h1 id="calendar-heading"
                       className="text-2xl sm:text-[28px] font-black tracking-tight leading-none flex items-baseline">
                       {monthChars.map((ch, i) => (
@@ -338,148 +341,166 @@ export default function CalendarWidget() {
                         </span>
                       ))}
                     </h1>
-                    <ChevronDown size={12} className="flex-shrink-0 transition-transform duration-200 group-aria-expanded:rotate-180"
-                      style={{ color: accent, opacity: 0.7 }} />
+                    <ChevronDown size={12} className="flex-shrink-0"
+                      style={{
+                        color: accent, opacity: 0.7,
+                        transform: picker === "month" ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.2s",
+                      }} />
                   </button>
 
-                  {/* MONTH PICKER DROPDOWN */}
-                  {picker === "month" && (
-                    <div ref={pickerRef}
-                      className="absolute z-50 rounded-2xl p-3"
-                      style={{
-                        top: "calc(100% + 8px)", left: 0,
-                        background: tokens.panel,
-                        border: `1px solid ${tokens.border}`,
-                        boxShadow: isDark
-                          ? "0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)"
-                          : "0 16px 40px rgba(0,0,0,0.14)",
-                        minWidth: 220,
-                      }}>
-                      <p className="text-[8px] font-black tracking-[0.25em] uppercase mb-2 px-1"
-                        style={{ color: tokens.textMuted }}>
-                        {yearNow} — Select Month
-                      </p>
-                      <div className="grid grid-cols-4 gap-1">
-                        {MONTH_NAMES.map((mn, idx) => (
-                          <button key={mn} onClick={() => jumpToMonth(idx)}
-                            aria-label={`${MONTH_FULL[idx]} ${yearNow}`}
-                            className="text-[11px] font-bold py-2 rounded-xl transition-all duration-150"
-                            style={{
-                              background: idx === currentMonth.getMonth() ? accent : "transparent",
-                              color: idx === currentMonth.getMonth() ? "#fff" : tokens.dayText,
-                            }}
-                            onMouseEnter={e => {
-                              if (idx !== currentMonth.getMonth())
-                                (e.currentTarget).style.background = tokens.dayHover;
-                            }}
-                            onMouseLeave={e => {
-                              if (idx !== currentMonth.getMonth())
-                                (e.currentTarget).style.background = "transparent";
-                            }}>
-                            {mn}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {/* Navigation controls */}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {/* « prev year */}
+                    <NavBtn onClick={handlePrevYear}
+                      label={`Previous year: ${format(subYears(currentMonth, 1), "yyyy")}`}
+                      tokens={tokens} accent={accent} small>
+                      <ChevronsLeft size={13} />
+                    </NavBtn>
+                    {/* ‹ prev month */}
+                    <NavBtn onClick={handlePrev}
+                      label={`Previous month: ${format(subMonths(currentMonth, 1), "MMMM yyyy")}`}
+                      tokens={tokens} accent={accent}>
+                      <ChevronLeft size={14} />
+                    </NavBtn>
 
-                  {/* YEAR PICKER DROPDOWN */}
-                  {picker === "year" && (
-                    <div ref={pickerRef}
-                      className="absolute z-50 rounded-2xl p-3"
+                    {/* Year badge — click to open year picker */}
+                    <button
+                      onClick={() => setPicker(p => p === "year" ? "none" : "year")}
+                      aria-label={`Year ${yearNow} — click to change year`}
+                      aria-expanded={picker === "year"}
+                      aria-haspopup="listbox"
+                      className="font-mono text-[11px] font-bold px-2 py-1 rounded-lg transition-all duration-150 focus:outline-none focus-visible:ring-2 flex items-center gap-0.5"
                       style={{
-                        top: "calc(100% + 8px)", right: 0,
-                        background: tokens.panel,
-                        border: `1px solid ${tokens.border}`,
-                        boxShadow: isDark
-                          ? "0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)"
-                          : "0 16px 40px rgba(0,0,0,0.14)",
-                        minWidth: 200,
+                        color: picker === "year" ? accent : tokens.textMuted,
+                        minWidth: 50, textAlign: "center",
+                        background: picker === "year" ? `${accent}18` : "transparent",
+                        border: `1px solid ${picker === "year" ? accent + "44" : "transparent"}`,
+                        // @ts-expect-error — CSS var
+                        "--tw-ring-color": accent,
                       }}>
-                      <p className="text-[8px] font-black tracking-[0.25em] uppercase mb-2 px-1"
-                        style={{ color: tokens.textMuted }}>
-                        Select Year
-                      </p>
-                      <div className="grid grid-cols-3 gap-1">
-                        {yearRange(yearNow).map(yr => (
-                          <button key={yr} onClick={() => jumpToYear(yr)}
-                            aria-label={`Year ${yr}`}
-                            className="text-[11px] font-bold py-2 rounded-xl transition-all duration-150"
-                            style={{
-                              background: yr === yearNow ? accent : "transparent",
-                              color: yr === yearNow ? "#fff" : tokens.dayText,
-                            }}
-                            onMouseEnter={e => {
-                              if (yr !== yearNow) (e.currentTarget).style.background = tokens.dayHover;
-                            }}
-                            onMouseLeave={e => {
-                              if (yr !== yearNow) (e.currentTarget).style.background = "transparent";
-                            }}>
-                            {yr}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                      {format(currentMonth, "yyyy")}
+                      <ChevronDown size={8} style={{
+                        opacity: 0.5,
+                        transform: picker === "year" ? "rotate(180deg)" : "rotate(0)",
+                        transition: "transform 0.2s",
+                      }} />
+                    </button>
+
+                    {/* next month › */}
+                    <NavBtn onClick={handleNext}
+                      label={`Next month: ${format(addMonths(currentMonth, 1), "MMMM yyyy")}`}
+                      tokens={tokens} accent={accent}>
+                      <ChevronRight size={14} />
+                    </NavBtn>
+                    {/* next year » */}
+                    <NavBtn onClick={handleNextYear}
+                      label={`Next year: ${format(addYears(currentMonth, 1), "yyyy")}`}
+                      tokens={tokens} accent={accent} small>
+                      <ChevronsRight size={13} />
+                    </NavBtn>
+
+                    {/* Divider */}
+                    <span className="w-px h-5 mx-0.5" style={{ background: tokens.btnBorder }} aria-hidden />
+
+                    {/* Theme toggle */}
+                    <NavBtn onClick={toggleTheme}
+                      label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+                      tokens={tokens} accent={accent}>
+                      {isDark ? <Sun size={13} /> : <Moon size={13} />}
+                    </NavBtn>
+                  </div>
                 </div>
 
-                {/* Navigation controls */}
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  {/* « prev year */}
-                  <NavBtn onClick={handlePrevYear}
-                    label={`Previous year: ${format(subYears(currentMonth, 1), "yyyy")}`}
-                    tokens={tokens} accent={accent} small>
-                    <ChevronsLeft size={13} />
-                  </NavBtn>
-                  {/* ‹ prev month */}
-                  <NavBtn onClick={handlePrev}
-                    label={`Previous month: ${format(subMonths(currentMonth, 1), "MMMM yyyy")}`}
-                    tokens={tokens} accent={accent}>
-                    <ChevronLeft size={14} />
-                  </NavBtn>
-
-                  {/* Year badge — click to open year picker */}
-                  <button
-                    onClick={() => setPicker(p => p === "year" ? "none" : "year")}
-                    aria-label={`Year ${yearNow} — click to change year`}
-                    aria-expanded={picker === "year"}
-                    className="font-mono text-[11px] font-bold px-2 rounded-lg transition-all duration-150 focus:outline-none focus-visible:ring-2 flex items-center gap-0.5"
+                {/* ── MONTH PICKER — anchored top-left of header ──────────── */}
+                {picker === "month" && (
+                  <div ref={pickerRef}
+                    role="listbox" aria-label="Choose month"
+                    className="absolute z-50 rounded-2xl p-3"
                     style={{
-                      color: picker === "year" ? accent : tokens.textMuted,
-                      minWidth: 44, textAlign: "center",
-                      background: picker === "year" ? `${accent}14` : "transparent",
-                      // @ts-expect-error — CSS custom property
-                      "--tw-ring-color": accent,
+                      top: "calc(100% + 4px)", left: 0,
+                      background: tokens.panel,
+                      border: `1px solid ${tokens.border}`,
+                      boxShadow: isDark
+                        ? "0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08)"
+                        : "0 16px 40px rgba(0,0,0,0.18)",
+                      minWidth: 230,
                     }}>
-                    {format(currentMonth, "yyyy")}
-                    <ChevronDown size={8} style={{ opacity: 0.5,
-                      transform: picker === "year" ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }} />
-                  </button>
+                    <p className="text-[8px] font-black tracking-[0.25em] uppercase mb-2 px-1"
+                      style={{ color: tokens.textMuted }}>
+                      {yearNow} — Select Month
+                    </p>
+                    <div className="grid grid-cols-4 gap-1" role="group">
+                      {MONTH_NAMES.map((mn, idx) => (
+                        <button key={mn}
+                          role="option"
+                          aria-selected={idx === currentMonth.getMonth()}
+                          onClick={() => jumpToMonth(idx)}
+                          aria-label={`${MONTH_FULL[idx]} ${yearNow}`}
+                          className="text-[11px] font-bold py-2 rounded-xl transition-all duration-150"
+                          style={{
+                            background: idx === currentMonth.getMonth() ? accent : "transparent",
+                            color: idx === currentMonth.getMonth() ? "#fff" : tokens.dayText,
+                          }}
+                          onMouseEnter={e => {
+                            if (idx !== currentMonth.getMonth())
+                              (e.currentTarget).style.background = tokens.dayHover;
+                          }}
+                          onMouseLeave={e => {
+                            if (idx !== currentMonth.getMonth())
+                              (e.currentTarget).style.background = "transparent";
+                          }}>
+                          {mn}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                  {/* next month › */}
-                  <NavBtn onClick={handleNext}
-                    label={`Next month: ${format(addMonths(currentMonth, 1), "MMMM yyyy")}`}
-                    tokens={tokens} accent={accent}>
-                    <ChevronRight size={14} />
-                  </NavBtn>
-                  {/* next year » */}
-                  <NavBtn onClick={handleNextYear}
-                    label={`Next year: ${format(addYears(currentMonth, 1), "yyyy")}`}
-                    tokens={tokens} accent={accent} small>
-                    <ChevronsRight size={13} />
-                  </NavBtn>
+                {/* ── YEAR PICKER — anchored top-right of header ─────────── */}
+                {picker === "year" && (
+                  <div ref={pickerRef}
+                    role="listbox" aria-label="Choose year"
+                    className="absolute z-50 rounded-2xl p-3"
+                    style={{
+                      top: "calc(100% + 4px)", right: 0,
+                      background: tokens.panel,
+                      border: `1px solid ${tokens.border}`,
+                      boxShadow: isDark
+                        ? "0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08)"
+                        : "0 16px 40px rgba(0,0,0,0.18)",
+                      minWidth: 210,
+                    }}>
+                    <p className="text-[8px] font-black tracking-[0.25em] uppercase mb-2 px-1"
+                      style={{ color: tokens.textMuted }}>
+                      Select Year
+                    </p>
+                    <div className="grid grid-cols-3 gap-1" role="group">
+                      {yearRange(yearNow).map(yr => (
+                        <button key={yr}
+                          role="option"
+                          aria-selected={yr === yearNow}
+                          onClick={() => jumpToYear(yr)}
+                          aria-label={`Year ${yr}`}
+                          className="text-[11px] font-bold py-2 rounded-xl transition-all duration-150"
+                          style={{
+                            background: yr === yearNow ? accent : "transparent",
+                            color: yr === yearNow ? "#fff" : tokens.dayText,
+                          }}
+                          onMouseEnter={e => {
+                            if (yr !== yearNow) (e.currentTarget).style.background = tokens.dayHover;
+                          }}
+                          onMouseLeave={e => {
+                            if (yr !== yearNow) (e.currentTarget).style.background = "transparent";
+                          }}>
+                          {yr}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                  {/* Divider */}
-                  <span className="w-px h-5 mx-0.5" style={{ background: tokens.btnBorder }} aria-hidden />
-
-                  {/* Theme toggle */}
-                  <NavBtn onClick={toggleTheme}
-                    label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-                    tokens={tokens} accent={accent}>
-                    {isDark ? <Sun size={13} /> : <Moon size={13} />}
-                  </NavBtn>
-                </div>
-              </div>
+              </div>{/* /relative picker portal */}
 
               {/* Quick select row */}
               <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label="Quick date selection">
